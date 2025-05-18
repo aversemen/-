@@ -1,0 +1,37 @@
+% Факты о продуктах и их свойствах
+fruit(persimmon).    % хурма (пеpсики)
+fruit(apple).        % яблоки
+color(persimmon, yellow).
+color(orange, orange).
+color(apple, red).
+color(apple, yellow).
+
+% Кукуруза - не фрукт
+vegetable(corn).
+
+% Что любит Мэри
+loves(mary, persimmon).
+loves(mary, corn).
+loves(mary, apple).
+
+% Правила для Бет
+loves(bet, X) :-
+    loves(mary, X),
+    fruit(X),
+    color(X, red).
+
+loves(bet, X) :-
+    loves(mary, X),
+    vegetable(X).
+
+% Запрос 1: Что любит Бет?
+%?- loves(bet, X).
+
+% Запрос 2: Любит ли Мэри кукурузу?
+%?- loves(mary, corn).
+
+% Запрос 3: Какие фрукты известны?
+%?- fruit(X).
+
+% Запрос 4: Какого цвета фрукты, которые любят Бет и Мэри?
+%?- loves(bet, X), loves(mary, X), fruit(X), color(X, Color).
