@@ -1,0 +1,186 @@
+from ortools.sat.python import cp_model
+from ortools.constraint_solver import routing_enums_pb2
+from ortools.constraint_solver import pywrapcp
+
+def scheduling_problem():
+    """Задача составления расписаний занятий"""
+    print("\n=== Составление расписаний ===")
+    model = cp_model.CpModel()
+
+    # Данные
+    classes = ['Математика', 'Физика', 'Химия', 'Биология']
+    rooms = ['Аудитория 101', 'Аудитория 202']
+    times = [9, 11, 14]  # Часы начала занятий
+
+    # Переменные
+    assign = {}
+    for c in classes:
+        for r in rooms:
+            for t in times:
+                assign[(c, r, t)] = model.NewBoolVar(f'{c}_{r}_{t}')
+
+    # Ограничения
+    for c in classes:
+        model.Add(sum(assign[(c, r, t)] for r in rooms for t in times) == 1)
+
+    for r in rooms:
+        for t in times:
+            model.Add(sum(assign[(c, r, t)] for c in classes) <= 1)
+
+    # Решение
+    solver = cp_model.CpSolver()
+    status = solver.Solve(model)
+
+    # Вывод
+    if status == cp_model.OPTIMAL:
+        print("Оптимальное расписание:")
+        for c in classes:
+            for r in rooms:
+                for t in times:
+                    if solver.Value(assign[(c, r, t)]):
+                        print(f'{c} в {r} в {t}:00')
+    else:
+        print("Решение не найдено")
+
+def routing_problem():
+    """Задача маршрутизации (TSP)"""
+    print("\n=== Построение маршрутов ===")
+    
+    # Матрица расстояний между точками
+    distance_matrix = [
+        [0, 2, 9, 10],
+        [2, 0, 6, 4],
+        [9, 6, 0, 8],
+        [10, 4, 8, 0]
+    ]
+
+    def distance_callback(from_index, to_index):
+        return distance_matrix[from_index][to_index]
+
+    # Создание модели
+    manager = pywrapcp.RoutingIndexManager(len(distance_matrix), 1, 0)
+    routing = pywrapcp.RoutingModel(manager)
+    transit_callback_index = routing.RegisterTransitCallback(distance_callback)
+    routing.SetArcCostEvaluatorOfAllVehicles(transit_callback_index)
+
+    # Настройка поиска
+    search_parameters = pywrapcp.DefaultRoutingSearchParameters()
+    search_parameters.first_solution_strategy = (
+        routing_enums_pb2.FirstSolutionStrategy.PATH_CHEAPEST_ARC
+    )
+
+    # Решение
+    solution = routing.SolveWithParameters(search_parameters)
+
+    # Вывод
+    if solution:
+        print("Оптимальный маршрут:")
+        index = routing.Start(0)
+        route_distance = 0
+        route = []
+        while not routing.IsEnd(index):
+            node = manager.IndexToNode(index)
+            route.append(node)
+            previous_index = index
+            index = solution.Value(routing.NextVar(index))
+            route_distance += routing.GetArcCostForVehicle(previous_index, index, 0)
+        
+        print(' -> '.join(map(str, route)))
+        print(f"Общая дистанция: {route_distance} км")
+    else:
+        print("Решение не найдено")
+
+def logistics_problem():
+    """Задача логистики (распределение грузов)"""
+    print("\n=== Оптимизация логистики ===")
+    model = cp_model.CpModel()
+
+    # Данные
+    boxes = [15, 20, 5, 10]  # Вес каждого ящика
+    trucks = ['Грузовик A', 'Грузовик B']
+    max_load = 30  # Макс. нагрузка на грузовик
+
+    # Переменные
+    assign = {}
+    for i, box in enumerate(boxes):
+        for t in trucks:
+            assign[(i, t)] = model.NewBoolVar(f'box_{i}_in_{t}')
+
+    # Ограничения
+    for i in range(len(boxes)):
+        model.Add(sum(assign[(i, t)] for t in trucks) == 1)
+
+    for t in trucks:
+        model.Add(
+            sum(boxes[i] * assign[(i, t)] for i in range(len(boxes))) <= max_load
+        )
+
+    # Решение
+    solver = cp_model.CpSolver()
+    status = solver.Solve(model)
+
+    # Вывод
+    if status == cp_model.OPTIMAL:
+        print("Оптимальное распределение грузов:")
+        for t in trucks:
+            total = 0
+            print(f'{t}: ', end='')
+            for i in range(len(boxes)):
+                if solver.Value(assign[(i, t)]):
+                    print(f'Ящик {i+1} ({boxes[i]} кг), ', end='')
+                    total += boxes[i]
+            print(f'Всего: {total} кг')
+    else:
+        print("Решение не найдено")
+
+def cutting_stock_problem():
+    """Задача раскройки материалов"""
+    print("\n=== Оптимизация раскройки ===")
+    model = cp_model.CpModel()
+
+    # Данные
+    board_length = 10  # Длина стандартной доски
+    pieces = [4, 3, 2, 5]  # Требуемые отрезки
+
+    # Переменные
+    num_boards = model.NewIntVar(1, 10, 'num_boards')
+    assign = {}
+    for i, piece in enumerate(pieces):
+        for b in range(10):
+            assign[(i, b)] = model.NewBoolVar(f'piece_{i}_on_board_{b}')
+
+    # Ограничения
+    for i in range(len(pieces)):
+        model.Add(sum(assign[(i, b)] for b in range(10)) == 1)
+
+    for b in range(10):
+        model.Add(
+            sum(pieces[i] * assign[(i, b)] for i in range(len(pieces))) <= board_length
+        )
+
+    # Цель
+    model.Minimize(num_boards)
+
+    # Решение
+    solver = cp_model.CpSolver()
+    status = solver.Solve(model)
+
+    # Вывод
+    if status == cp_model.OPTIMAL:
+        print(f"Минимальное число досок: {solver.Value(num_boards)}")
+        for b in range(solver.Value(num_boards)):
+            total = 0
+            print(f'Доска {b+1}: ', end='')
+            for i in range(len(pieces)):
+                if solver.Value(assign[(i, b)]):
+                    print(f'{pieces[i]}м ', end='')
+                    total += pieces[i]
+            print(f'(использовано {total}м из {board_length}м)')
+    else:
+        print("Решение не найдено")
+
+if __name__ == "__main__":
+    scheduling_problem()
+    routing_problem()
+    logistics_problem()
+    cutting_stock_problem()
